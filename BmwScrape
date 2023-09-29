@@ -1,0 +1,66 @@
+import mechanicalsoup
+import pandas as pd
+import sqlite3
+from collections import defaultdict
+
+url = "https://en.wikipedia.org/wiki/BMW_M"
+browser = mechanicalsoup.StatefulBrowser()
+browser.open(url)
+
+th = browser.page.find_all("th", attrs={"class": "table-rh"})
+distribution = [value.text.replace("\n", "") for value in th]
+# print(distribution.index("Zorin OS"))
+# distribution = distribution[:98]
+
+# print(distribution)
+
+td = browser.page.find_all("td")
+columns = [value.text.replace("\n", "") for value in td]
+# print(columns)
+# print(columns.index("AlmaLinux Foundation"))
+# print(columns.index("Binary blobs"))
+
+columns = columns[10:235]
+print(columns)
+
+column_names = [
+    "Production", "Model", "Type", "Displacement", "Engine_Type", "Power",
+    "Body", "Production_Number", "Image"
+]
+
+# column[0:][::11]
+# column[1:][::11]
+# column[2:][::11]
+
+dictionary = defaultdict(list)
+
+for idx, key in enumerate(column_names):
+  dictionary[key] = columns[idx:][::9]
+
+for value in dictionary.values():
+  print(value)
+
+df = pd.DataFrame(data=dictionary)
+print(df.head())
+print(df.tail())
+
+connection = sqlite3.connect("distro.db")
+cursor = connection.cursor()
+
+try:
+    cursor.execute("SELECT * FROM BMW")
+     
+    # storing the data in a list
+    data_list = cursor.fetchall()
+    cursor.execute("drop table BMW") 
+         
+except sqlite3.OperationalError:
+    print("No such table: BMW")
+
+cursor.execute("create table BMW (" + ",".join(column_names) + ")")
+for i in range(len(df)):
+  cursor.execute("insert into BMW values (?,?,?,?,?,?,?,?,?)", df.iloc[i])
+
+connection.commit()
+
+connection.close()
